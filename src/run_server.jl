@@ -148,7 +148,7 @@ function _run_mdfiles(vault)
         end
 
     end # for mdfile in mdfiles
-    
+
 end
 
 ## ------------------------------------------------------------------
@@ -160,15 +160,13 @@ function run_server(vault=pwd(); niters = typemax(Int), force = false)
     # jlfiles
     _run_startup_jl(vault)
 
-    for it in 1:niters
+    for _ in 1:niters
 
         # trigger
         force || _wait_for_trigger(vault)
         
         # mdfiles
         _run_mdfiles(vault)
-
-        println()
     
     end
 end

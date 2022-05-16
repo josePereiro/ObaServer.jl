@@ -72,7 +72,8 @@ function _error(io::IO, msg::String, err, sep; kwargs...)
     ioh, iow = displaysize(io)
 
     println()
-    println(sep^max(30, iow - 10))
+    printstyled(sep^max(30, iow - 10); bold = true, color = ERROR_COLOR)
+    println()
     printstyled(msg; bold = true, color = ERROR_COLOR)
     println()
     for (k, val) in kwargs

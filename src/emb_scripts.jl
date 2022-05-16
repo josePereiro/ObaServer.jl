@@ -24,7 +24,7 @@ function _format_source(src)
     # remove tag
     src = replace(src, EMBEDDED_SCRIPT_TAG_REGEX => ""; count = 1)
     src = strip(src)
-    src = replace(src, r"\A```julia\h*\n" => ""; count = 1)
+    src = replace(src, r"\A```[a-zA-Z]*\h*\n" => ""; count = 1)
     src = replace(src, r"```\h*\Z" => ""; count = 1)
     src = _replace_base_macros(src)
     return string(src)

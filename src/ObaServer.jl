@@ -1,10 +1,12 @@
 module ObaServer
 
-using ObaASTs
 import EasyEvents: reset!, update!, has_event!, FileContentEvent, FileMTimeEvent
 import Random: randstring
 
 using FilesTreeTools
+using ObaASTs
+
+export run_server
 
 include("control.jl")
 include("emb_scripts.jl")

@@ -28,7 +28,7 @@ _rm(dir) = rm(dir; force = true, recursive = true)
         tfile2 = joinpath(vault, "test_file2")
         write(mdfile, 
             """
-            %% #!julia
+            %% #!Oba
             ```julia
             write("$tfile2", "$rstr2")
             ```

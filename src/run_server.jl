@@ -37,98 +37,48 @@ end
 
 ## ------------------------------------------------------------------
 
-function _run_mdfiles(vault)
+function _run_notefiles(vault, ext)
 
-    _info("Running md files", "=")
+    _info("Running note ($ext) files", "=")
 
-    mdfiles = findall_files(vault, ".md")
-    for mdfile in mdfiles
+    notefiles = findall_files(vault, ext)
+    for notefile in notefiles
 
         try
 
             # prepare globals
             _reset_globals!()
             _set_global!(:__VAULT__, vault)
-            _set_global!(:__FILE__, mdfile)
-            _set_global!(:__DIR__, dirname(mdfile))
+            _set_global!(:__FILE__, notefile)
+            _set_global!(:__DIR__, dirname(notefile))
 
             processed = UInt64[]
             for _ in 1:1000 # The run deep
                 
                 run_again = false
 
-                AST = parse_file(mdfile)
+                AST = parse_file(notefile)
                 
                 for child in AST
 
                     # check type
-                    (child isa CommentBlockAST) || continue
+                    isscriptblock(child) || continue
+
+                    # handle ignore flag
+                    hasflag(child, "i") && continue
                     
-                    # values
-                    emb_script = child.body
-                    
-                    # check is script comment
-                    rmatch = match(EMBEDDED_SCRIPT_TAG_REGEX, emb_script)
-                    isnothing(rmatch) && continue # check is script comment     
-
-                    # script_id
-                    script_id = _get_match(rmatch, :id)
-
-                    # refactor is script_id is missing
-                    if isnothing(script_id)
-
-                        # new script
-                        embtag = _gen_ambtag(child.line)
-                        newsrc = replace(child.src, EMBEDDED_SCRIPT_TAG_REGEX => embtag; count = 1)
-                        
-                        # info
-                        _info("Refactoring source", "-"; 
-                            embtag, 
-                            mdfile = string(mdfile, ":", child.line),
-                            newsrc = string("\n", newsrc),
-                        )
-                        
-                        # write
-                        # TODO: add write(mdfile, AST) proper method
-                        child.src = newsrc
-                        reparse!(AST)
-                        write(mdfile, AST)
-                        
-                        # signal
-                        run_again = true
-                        
-                        break # for child in AST
+                    # refactor if script_id is missing
+                    refactored = _handle_script_id_refactoring!(child, notefile)
+                    if refactored
+                        run_again = true # signal
+                        break # for child in AST 
                     end
 
-                    # check if processed
-                    hash_ = hash(script_id)
-                    (hash_ in processed) && continue
-                    push!(processed, hash_)
+                    # run script
+                    didrun = _run_script!(child, processed, vault, notefile)
 
-                    # set globals
-                    _set_global!(:__VAULT__, vault)
-                    _set_global!(:__FILE__, mdfile)
-                    _set_global!(:__DIR__, dirname(mdfile))
-                    _set_global!(:__LINE__, child.line)
-                    _set_global!(:__FILE_AST__, AST)
-                    _set_global!(:__LINE_AST__, child)
-                    _set_global!(:__SCRIPT_ID__, script_id)
-                    
-                    # emb_script
-                    emb_script = _format_source(emb_script)
-
-                    # info
-                    _info("Running script", "-"; 
-                        script_id, 
-                        mdfile = string(mdfile, ":", child.line),
-                        src = string("\n", emb_script), 
-                    )
-                    
-                    # eval
-                    include_string(Main, emb_script)
-
-                    # signal
-                    run_again = true
+                    # signal out
+                    run_again = didrun
 
                     println()
                     
@@ -143,16 +93,19 @@ function _run_mdfiles(vault)
             end # The run deep
         
         catch err
-            _error("ERROR", err, "!"; mdfile)
+            _error("ERROR", err, "!"; notefile)
             return
         end
 
-    end # for mdfile in mdfiles
+    end # for notefile
 
 end
 
 ## ------------------------------------------------------------------
-function run_server(vault=pwd(); niters = typemax(Int), force = false)
+function run_server(vault=pwd(); 
+        niters = typemax(Int), force = false, 
+        note_exts = [".md"]
+    )
 
     # reset
     _reset_server()
@@ -165,8 +118,10 @@ function run_server(vault=pwd(); niters = typemax(Int), force = false)
         # trigger
         force || _wait_for_trigger(vault)
         
-        # mdfiles
-        _run_mdfiles(vault)
+        # notefiles
+        for ext in note_exts
+            _run_notefiles(vault, ext)
+        end
     
     end
 end

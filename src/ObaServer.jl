@@ -9,9 +9,9 @@ using ObaASTs
 export run_server
 
 include("control.jl")
-include("emb_scripts.jl")
 include("globals.jl")
 include("oba_plugin.jl")
+include("oba_scripts.jl")
 include("run_server.jl")
 include("utils.jl")
 

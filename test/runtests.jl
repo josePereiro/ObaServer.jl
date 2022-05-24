@@ -9,7 +9,6 @@ _rm(dir) = rm(dir; force = true, recursive = true)
     _rm(vault); mkpath(vault);
 
     try
-
         # test file
         
         # startup.oba.jl
@@ -37,7 +36,7 @@ _rm(dir) = rm(dir; force = true, recursive = true)
         )
 
         # run server
-        run_server(vault; niters = 1, force = true)
+        run_server(vault; niters = 1, force_trigger = true)
 
         # tests
         @test read(tfile1, String) == rstr1

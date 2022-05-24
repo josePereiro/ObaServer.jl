@@ -8,8 +8,11 @@ using ObaASTs
 
 export run_server
 
+include("types.jl")
+include("state.jl")
 include("control.jl")
 include("globals.jl")
+include("extras.jl")
 include("oba_plugin.jl")
 include("oba_scripts.jl")
 include("run_server.jl")

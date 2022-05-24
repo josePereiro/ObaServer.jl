@@ -1,11 +1,7 @@
 ## ------------------------------------------------------------------
 function _reset_server()
     # Events
-    reset!(OBA_PLUGIN_TRIGGER_FILE_CONTENT_EVENT)
-    reset!(RUNNER_FILE_CONTENT_EVENT)
-
-    # running globals
-    _reset_globals!()
+    reset!(OBA_PLUGIN_TRIGGER_FILE_EVENT)
 
     return nothing
 end
@@ -21,7 +17,7 @@ function _run_startup_jl(vault)
     isempty(jlfile) && return
 
     # prepare globals
-    _reset_globals!()
+    _set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__,])
     _set_global!(:__VAULT__, vault)
     _set_global!(:__FILE__, jlfile)
     _set_global!(:__DIR__, dirname(jlfile))
@@ -33,95 +29,128 @@ function _run_startup_jl(vault)
 
     return nothing
 end
-
+_run_startup_jl(server::ObaServerState) = _run_startup_jl(server[VAULT_ENV_KEY])
 
 ## ------------------------------------------------------------------
 
-function _run_notefiles(vault, ext)
+function _run_notefiles(server::ObaServerState)
 
-    _info("Running note ($ext) files", "=")
+    for notes_ext in server[NOTE_EXTS_ENV_KEY]
 
-    notefiles = findall_files(vault, ext)
-    for notefile in notefiles
+        _info("Running note ($notes_ext) files", "=")
 
-        try
+        notefiles = findall_files(server[VAULT_ENV_KEY], notes_ext)
+        for notefile in notefiles
 
-            # prepare globals
-            _reset_globals!()
-            _set_global!(:__VAULT__, vault)
-            _set_global!(:__FILE__, notefile)
-            _set_global!(:__DIR__, dirname(notefile))
+            try
 
-            processed = UInt64[]
-            for _ in 1:1000 # The run deep
-                
-                run_again = false
+                # prepare globals
+                _set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__])
+                _set_global!(:__VAULT__, server[VAULT_ENV_KEY])
+                _set_global!(:__FILE__, notefile)
+                _set_global!(:__DIR__, dirname(notefile))
 
-                AST = parse_file(notefile)
-                
-                for child in AST
-
-                    # check type
-                    isscriptblock(child) || continue
-
-                    # handle ignore flag
-                    hasflag(child, "i") && continue
+                processed = UInt64[]
+                server[PER_FILE_LOOP_ITER_ENV_KEY] = 1
+                while true
                     
-                    # refactor if script_id is missing
-                    refactored = _handle_script_id_refactoring!(child, notefile)
-                    if refactored
-                        run_again = true # signal
-                        break # for child in AST 
-                    end
+                    get!(server, RUN_FILE_AGAIN_SIGNAL, false)
 
-                    # run script
-                    didrun = _run_script!(child, processed, vault, notefile)
-
-                    # signal out
-                    run_again = didrun
-
-                    println()
+                    AST = parse_file(notefile)
                     
-                    # because an script can modified its own file
-                    # I rerun the file 
-                    break # for child in AST
-                
-                end # for child in AST
+                    for child in AST
 
-                run_again || break
+                        # check type
+                        isscriptblock(child) || continue
+
+                        # handle ignore flag
+                        hasflag(child, "i") && continue
+                        
+                        # refactor if script_id is missing
+                        refactored = _handle_script_id_refactoring!(child, notefile)
+                        if refactored
+                            server[RUN_FILE_AGAIN_SIGNAL] = true # signal
+                            break # for child in AST 
+                        end
+
+                        # run script
+                        didrun = _run_script!(child, processed, server[VAULT_ENV_KEY], notefile)
+
+                        # signal out
+                        server[RUN_FILE_AGAIN_SIGNAL] = didrun
+                        
+                        println()
+                        
+                        # because an script can modified its own file
+                        # I rerun the file 
+                        break # for child in AST
+                    
+                    end # for child in AST
+
+                    get!(server, RUN_FILE_AGAIN_SIGNAL, false) || break
+                
+                    server[PER_FILE_LOOP_ITER_ENV_KEY] >= get(server, PER_FILE_LOOP_NITERS_ENV_KEY, 1000) && break
+                    server[PER_FILE_LOOP_ITER_ENV_KEY] += 1
+
+                end # The run deep
             
-            end # The run deep
-        
-        catch err
-            _error("ERROR", err, "!"; notefile)
-            return
-        end
+            catch err
+                _error("ERROR", err, "!"; notefile)
+                return
+            end
 
-    end # for notefile
-
+        end # for notefile
+    end # for notes_ext
 end
 
 ## ------------------------------------------------------------------
 function run_server(vault=pwd(); 
-        niters = typemax(Int), force = false, 
-        note_exts = [".md"]
+        niters = typemax(Int), 
+        note_exts = [".md"],
+        force_trigger = false, 
+        trigger_file = _oba_plugin_trigger_file(vault)
     )
+
+    # save envs
+    server = ObaServerState()
+    setenv!(server; 
+        vault = abspath(vault), 
+        niters, 
+        force_trigger, 
+        trigger_file = abspath(trigger_file),
+        note_exts
+    )
+
+    # run
+    run_server(server) 
+    
+end
+
+## ------------------------------------------------------------------
+function run_server(server::ObaServerState) 
 
     # reset
     _reset_server()
 
-    # jlfiles
-    _run_startup_jl(vault)
+    # set global
+    _set_global!(:__SERVER_ENV__, server)
 
-    for _ in 1:niters
+    # jlfiles
+    _run_startup_jl(server)
+
+    server[SERVER_LOOP_ITER_ENV_KEY] = 1
+    while true
 
         # trigger
-        force || _wait_for_trigger(vault)
+        _wait_for_trigger(server)
         
         # notefiles
-        for ext in note_exts
-            _run_notefiles(vault, ext)
-        end
-    
+        _run_notefiles(server)
+
+        server[SERVER_LOOP_ITER_ENV_KEY] >= get(server, SERVER_LOOP_NITERS_ENV_KEY, typemax(Int)) && break
+        server[SERVER_LOOP_ITER_ENV_KEY] += 1
     end
+
+    return nothing
+
 end

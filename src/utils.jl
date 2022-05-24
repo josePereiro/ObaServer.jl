@@ -23,11 +23,8 @@ end
 function findall_files(vault::AbstractString, ext = ".md";
         sortby = mtime, sortrev = false, keepout = [".obsidian", ".git"]
     )
-
     files = filterdown((path) -> endswith(path, ext), vault; keepout)
-    
     sort!(files; by = sortby, rev = sortrev)
-
     return files
 end
 

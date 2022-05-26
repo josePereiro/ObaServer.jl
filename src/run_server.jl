@@ -54,7 +54,7 @@ function _run_notefiles(server::ObaServerState)
                 server[PER_FILE_LOOP_ITER_ENV_KEY] = 1
                 while true
                     
-                    get!(server, RUN_FILE_AGAIN_SIGNAL, false)
+                    server[RUN_FILE_AGAIN_SIGNAL] = false
 
                     AST = parse_file(notefile)
                     

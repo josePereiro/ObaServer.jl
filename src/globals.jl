@@ -9,7 +9,7 @@ function oba_globals_help()
     println("__SCRIPT_ID__", " -> ", "The id of the current script")
 end
 
-function _set_global!(sym::Symbol, val = nothing)
+function set_global!(sym::Symbol, val = nothing)
     T = typeof(val)
     _valref = Ref{T}(val)
     @eval Main begin
@@ -18,22 +18,30 @@ function _set_global!(sym::Symbol, val = nothing)
     return val
 end
 
-function _set_global!(syms::Vector, val = nothing)
+function set_global!(syms::Vector, val = nothing)
     for sym in syms
-        _set_global!(sym, val)
+        set_global!(sym, val)
     end
 end
 
-_get_global(sym::Symbol) = isdefined(Main, sym) ? getproperty(Main, sym) : nothing
-function _get_global!(sym::Symbol, dflt = nothing) 
-    isdefined(Main, sym) && return getproperty(Main, sym)
-    _set_global!(sym, dflt)
+function get_global(sym::Symbol) 
+    !isdefined(Main, sym) && 
+        error(
+            "global '", sym, "' not defined!\n", 
+            "Maybe you are running the server interface outside without it being running!"
+        )
+    return getproperty(Main, sym)
 end
-function _get_global!(f::Function, sym::Symbol) 
+get_global(sym::Symbol, dflt) = isdefined(Main, sym) ? getproperty(Main, sym) : dflt
+function get_global!(sym::Symbol, dflt = nothing) 
     isdefined(Main, sym) && return getproperty(Main, sym)
-    _set_global!(sym, f())
+    set_global!(sym, dflt)
+end
+function get_global!(f::Function, sym::Symbol) 
+    isdefined(Main, sym) && return getproperty(Main, sym)
+    set_global!(sym, f())
 end
 
-_reset_globals!() = _set_global!(
+reset_globals!() = set_global!(
     [ __VAULT__, __SERVER_ENV__, __DIR__, __FILE__, __LINE__, __LINE_AST__, __FILE_AST__, __SCRIPT_ID__, __EXTRAS__ ]
 )

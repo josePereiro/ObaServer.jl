@@ -4,52 +4,26 @@ _generate_rand_id(prefix = "", n = 8) = string(prefix, randstring(n))
 
 ## ------------------------------------------------------------------
 # HEAD
-
-function _get_longflag(ast::ObaScriptBlockAST, key::String, dflt = nothing)
-    head_ast = get(ast, :head)
-    longflags = get(() -> Dict(), head_ast, :longflags)
-    return get(longflags, key, dflt)
-end
-
-function _get_shortflags(ast::ObaScriptBlockAST)
-    head_ast = get(ast, :head)
-    return get(head_ast, :shortflags, "")
-end
-
-hasflag(ast::ObaScriptBlockAST, flag::String) = contains(_get_shortflags(ast), flag)
-
-function _handle_script_id_refactoring!(ast::ObaScriptBlockAST, mdfile)
-
-
-    head_ast = get(ast, :head)
-    longflags = get(() -> Dict(), head_ast, :longflags)
-    script_id = get(longflags, "id", nothing)
-
+function _handle_script_id_refactoring!(script_ast::ObaScriptBlockAST, mdfile)
+    
+    script_id = get_param(script_ast, "id", nothing)
+    
     isnothing(script_id) || return false
 
-    # new head
-    embtag = _generate_rand_id(ast.line)
-    new_head_src = string(strip(head_ast.src), " --id=", embtag)
-    script_body = get(ast, :body, "")
-    newsrc = string("%% ", new_head_src, "\n", 
-        strip(script_body), "\n",
-        "%%"
-    )
+    embtag = _generate_rand_id(script_ast.line)
     
+    set_param!(script_ast, "id", embtag)
+
     # info
     _info("Refactoring source", "-"; 
         embtag, 
-        mdfile = string(mdfile, ":", ast.line),
-        newsrc = string("\n", newsrc),
+        mdfile = string(mdfile, ":", script_ast.line),
+        newsrc = string("\n", script_ast.src),
     )
-    
-    # write
-    ast.src = newsrc
-    reparse!(parent_ast(ast))
-    write(mdfile, parent_ast(ast))
-        
-    return true
 
+    write!(parent_ast(script_ast))
+
+    return true
 end
 
 ## ------------------------------------------------------------------
@@ -73,7 +47,7 @@ end
 function _run_script!(script_ast, processed, vault, mdfile)
 
     # script_id
-    script_id = _get_longflag(script_ast, "id")
+    script_id = get_param(script_ast, "id")
 
     # check if processed
     hash_ = hash(script_id)
@@ -81,13 +55,13 @@ function _run_script!(script_ast, processed, vault, mdfile)
     push!(processed, hash_)
 
     # set globals
-    _set_global!(:__VAULT__, vault)
-    _set_global!(:__FILE__, mdfile)
-    _set_global!(:__DIR__, dirname(mdfile))
-    _set_global!(:__LINE__, script_ast.line)
-    _set_global!(:__FILE_AST__, parent_ast(script_ast))
-    _set_global!(:__LINE_AST__, script_ast)
-    _set_global!(:__SCRIPT_ID__, script_id)
+    set_global!(:__VAULT__, vault)
+    set_global!(:__FILE__, mdfile)
+    set_global!(:__DIR__, dirname(mdfile))
+    set_global!(:__LINE__, script_ast.line)
+    set_global!(:__FILE_AST__, parent_ast(script_ast))
+    set_global!(:__LINE_AST__, script_ast)
+    set_global!(:__SCRIPT_ID__, script_id)
     
     # emb_script
     script_source = get(script_ast, :script, "")

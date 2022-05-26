@@ -17,10 +17,10 @@ function _run_startup_jl(vault)
     isempty(jlfile) && return
 
     # prepare globals
-    _set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__,])
-    _set_global!(:__VAULT__, vault)
-    _set_global!(:__FILE__, jlfile)
-    _set_global!(:__DIR__, dirname(jlfile))
+    set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__,])
+    set_global!(:__VAULT__, vault)
+    set_global!(:__FILE__, jlfile)
+    set_global!(:__DIR__, dirname(jlfile))
     
     _info("Running startup.oba.jl", "="; jlfile)
     
@@ -45,10 +45,10 @@ function _run_notefiles(server::ObaServerState)
             try
 
                 # prepare globals
-                _set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__])
-                _set_global!(:__VAULT__, server[VAULT_ENV_KEY])
-                _set_global!(:__FILE__, notefile)
-                _set_global!(:__DIR__, dirname(notefile))
+                set_global!([:__LINE__,  :__LINE_AST__, :__FILE_AST__, :__SCRIPT_ID__])
+                set_global!(:__VAULT__, server[VAULT_ENV_KEY])
+                set_global!(:__FILE__, notefile)
+                set_global!(:__DIR__, dirname(notefile))
 
                 processed = UInt64[]
                 server[PER_FILE_LOOP_ITER_ENV_KEY] = 1
@@ -60,6 +60,7 @@ function _run_notefiles(server::ObaServerState)
                     
                     for child in AST
 
+                        
                         # check type
                         isscriptblock(child) || continue
 
@@ -133,7 +134,7 @@ function run_server(server::ObaServerState)
     _reset_server()
 
     # set global
-    _set_global!(:__SERVER_ENV__, server)
+    set_global!(:__SERVER_ENV__, server)
 
     # jlfiles
     _run_startup_jl(server)

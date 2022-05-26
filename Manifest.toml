@@ -84,7 +84,7 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 
 [[deps.ObaASTs]]
 deps = ["YAML"]
-git-tree-sha1 = "41f77b80939ddaaed43834bc8b1d1e361b231d5c"
+path = "/Users/Pereiro/.julia/dev/ObaASTs"
 uuid = "1070a898-5650-4dbc-bdc4-2f105286d314"
 version = "0.3.2"
 

@@ -6,6 +6,7 @@ import Random: randstring
 using FilesTreeTools
 using ObaASTs
 
+export set_global!, get_global, get_global!
 export run_server
 
 include("types.jl")

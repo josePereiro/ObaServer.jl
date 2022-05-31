@@ -1,37 +1,80 @@
-## ------------------------------------------------------------------
-# System keys
-const VAULT_ENV_KEY = "vault"
-const SERVER_LOOP_NITERS_ENV_KEY = "niters"
-const SERVER_LOOP_ITER_ENV_KEY = "iter"
-const PER_FILE_LOOP_NITERS_ENV_KEY = "per_files_niters"
-const PER_FILE_LOOP_ITER_ENV_KEY = "per_files_iter"
-const FORCE_TRIGGER_ENV_KEY = "force_trigger"
-const TRIGGER_FILE_ENV_KEY = "trigger_file"
-const NOTE_EXTS_ENV_KEY = "note_exts"
-const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
+# TODO: make better global interface
+# Maybe using functions (e.g currlineast())
+# Automatize reparse! detection
 
-## ------------------------------------------------------------------
-# ServerState api
-function Base.show(io::IO, e::ObaServerState)
-    println(io, "ObaServerState")
-    for (k, val) in e.state
-        println(io, k, " => ", val)
-    end
-    return nothing
-end
+const SERVER_STATE = ObaServerState()
 
-Base.get(e::ObaServerState, key, deft = nothing) = get(e.state, string(key), deft)
-Base.get!(e::ObaServerState, key, deft = nothing) = get!(e.state, string(key), deft)
-Base.get(f::Function, e::ObaServerState, key) = get(f, e.state, string(key))
-Base.get!(f::Function, e::ObaServerState, key) = get!(f, e.state, string(key))
-Base.getindex(e::ObaServerState, key) = getindex(e.state, string(key))
-Base.setindex!(e::ObaServerState, val, key) = setindex!(e.state, val, string(key))
-Base.keys(e::ObaServerState) = keys(e.state)
-Base.haskey(e::ObaServerState, key) = haskey(e.state, key)
+serverstate() = SERVER_STATE
 
-function setenv!(e::ObaServerState; kwargs...) 
+upstate!(k, val) = setindex!(SERVER_STATE, val, k)
+function upstate!(;kwargs...) 
     for (k, val) in kwargs
-        setindex!(e, val, k)
+        setindex!(SERVER_STATE, val, k)
     end
     return e
+end
+
+getstate(k) = getindex(SERVER_STATE, k)
+getstate(k, dflt) = get(SERVER_STATE, k, dflt)
+getstate!(k, dflt) = get!(SERVER_STATE, k, dflt)
+getstate(f::Function, k) = get(f, SERVER_STATE, k)
+getstate!(f::Function, k) = get!(f, SERVER_STATE, k)
+
+## ------------------------------------------------------------------
+# System keys
+# global state
+const VAULT_GLOBAL_KEY = "vaultdir"
+
+# Running state
+const CURRAST_GLOBAL_KEY = "currast"
+const CURRAST_REPARSE_COUNTER_GLOBAL_KEY = "ast_reparse_counter"
+const CURRSCRIPT_GLOBAL_KEY = "currscript"
+const SERVER_LOOP_NITERS_SERVER_KEY = "niters"
+const SERVER_LOOP_ITER_SERVER_KEY = "iter"
+const PER_FILE_LOOP_NITERS_SERVER_KEY = "per_files_niters"
+const PER_FILE_LOOP_ITER_SERVER_KEY = "per_files_iter"
+const FORCE_TRIGGER_SERVER_KEY = "force_trigger"
+const TRIGGER_FILE_SERVER_KEY = "trigger_file"
+const NOTE_EXT_SERVER_KEY = "note_ext"
+const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
+const WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY = "trigger_timer"
+const OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY = "trigger_file_event"
+
+vaultdir() = getindex(SERVER_STATE, VAULT_GLOBAL_KEY)
+vaultdir!(dir::String) = setindex!(SERVER_STATE, abspath(dir), VAULT_GLOBAL_KEY)
+
+function currscript() 
+    script_ast = getindex(SERVER_STATE, CURRSCRIPT_GLOBAL_KEY)
+    ast = parent_ast(script_ast)
+    # check reparse counter
+    if reparse_counter(ast) != getstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, nothing)
+        upstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, reparse_counter(ast))
+        script_ast = up_currscript!()
+    end
+    return script_ast
+end
+currscript!(ast::ObaScriptBlockAST) = setindex!(SERVER_STATE, ast, CURRSCRIPT_GLOBAL_KEY)
+currscript!(ast::CodeBlockAST) = setindex!(SERVER_STATE, ast, CURRSCRIPT_GLOBAL_KEY)
+
+currfile() = parent_file(currscript())
+currfiledir() = dirname(currfile())
+
+currline() = currscript().line
+scriptid() = get_param(currscript(), "id")
+
+currast() = getindex(SERVER_STATE, CURRAST_GLOBAL_KEY)
+currast!(ast::ObaAST) = setindex!(SERVER_STATE, ast, CURRAST_GLOBAL_KEY)
+
+export show_server_state
+show_server_state() = _info("Server state", "", SERVER_STATE.state)
+    
+function init_server_defaults()
+    
+    upstate!(WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY, 
+        SleepTimer(0.5, 15.0, 0.01)
+    )
+    upstate!(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY, 
+        FileContentEvent()
+    )
+    
 end

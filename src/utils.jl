@@ -28,13 +28,12 @@ function findall_files(vault::AbstractString, ext = ".md";
     return files
 end
 
-
-# ------------------------------------------------------------------
-const START_UP_FILE_NAME = "startup.oba.jl"
-function find_startup(vault; keepout = [".obsidian", ".git"])
+## ------------------------------------------------------------------
+export find_file
+function find_file(vault, name; keepout = [".obsidian", ".git"])
     path = ""
     walkdown(vault; keepout) do path_
-        if basename(path_) == "startup.oba.jl"
+        if basename(path_) == name
             path = path_
             return true
         end
@@ -42,6 +41,9 @@ function find_startup(vault; keepout = [".obsidian", ".git"])
     end
     return path
 end
+# Server api
+find_file(name; keepout = [".obsidian", ".git"]) = 
+    find_file(vaultdir(), name; keepout)
 
 ## ------------------------------------------------------------------
 const INFO_COLOR = :yellow
@@ -49,7 +51,7 @@ const KEY_COLOR = :blue
 const ERROR_COLOR = :red
 const SOFT_COLOR = 8
 
-function _info(io::IO, msg::String, sep; kwargs...)
+function _info(io::IO, msg::String, sep, kwargs)
 
     ioh, iow = displaysize(io)
 
@@ -63,7 +65,9 @@ function _info(io::IO, msg::String, sep; kwargs...)
         println()
     end
 end
-_info(msg::String, sep; kwargs...) = _info(stdout, msg, sep; kwargs...)
+_info(io::IO, msg::String, sep; kwargs...) = _info(io, msg, sep, kwargs)
+_info(msg::String, sep, kwargs) = _info(stdout, msg, sep, kwargs)
+_info(msg::String, sep; kwargs...) = _info(stdout, msg, sep, kwargs)
 
 function _error(io::IO, msg::String, err, sep; kwargs...)
     ioh, iow = displaysize(io)
@@ -84,3 +88,6 @@ function _error(io::IO, msg::String, err, sep; kwargs...)
     println()
 end
 _error(msg::String, err, sep; kwargs...) = _error(stdout, msg, err, sep; kwargs...)
+
+## ------------------------------------------------------------------
+ismultiline(str::String) = contains(str, "\n")

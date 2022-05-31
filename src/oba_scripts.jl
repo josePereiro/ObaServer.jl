@@ -33,18 +33,48 @@ end
 # Because the scripts are loaded from strings and not files.
 function _replace_base_macros(src)
     for (_macro, _global) in [
-        ("__LINE__", "__LINE__"), 
-        ("__FILE__", "__FILE__"), 
-        ("__DIR__", "__DIR__"),
+        ("__LINE__", "currline()"), 
+        ("__FILE__", "currfile()"), 
+        ("__DIR__", "currfiledir()"),
     ]
-        src = replace(src, string("Base.@", _macro) => _global)
-        src = replace(src, string("@Base.", _macro) => _global)
-        src = replace(src, string("@", _macro) => _global)
+        src = replace(src, Regex(string("Base.@", _macro, "(?:\\(\\h*\\))?")) => _global)
+        src = replace(src, Regex(string("@Base.", _macro, "(?:\\(\\h*\\))?")) => _global)
+        src = replace(src, Regex(string("@", _macro, "(?:\\(\\h*\\))?")) => _global)
     end
     return src
 end
 
-function _run_script!(script_ast, processed, vault, mdfile)
+function find_byid(new_ast::ObaAST, script_ast::ObaScriptBlockAST)
+    id0 = get_param(script_ast, "id")
+    isnothing(id0) && return nothing
+    for (idx, ch) in enumerate(new_ast)
+        isscriptblock(ch) || continue
+        id1 = get_param(script_ast, "id")
+        id1 == id0 && return idx
+    end
+    return nothing
+end
+find_byid(::ObaAST, ::AbstractObaASTChild) = nothing
+
+export up_currscript!
+"""
+When a reparse! is made, new childs are created and the globals must be recomputed.
+It assumes the id is unchanged.
+"""
+function up_currscript!()
+
+    ast = currast()
+    script = currscript()
+    curr_idx = find_byid(ast, script)
+    if !isnothing(curr_idx)
+        script = ast[curr_idx]
+        currscript!(script)
+    end
+
+    return script
+end
+
+function _run_obascript!(script_ast; processed = [])
 
     # script_id
     script_id = get_param(script_ast, "id")
@@ -53,15 +83,6 @@ function _run_script!(script_ast, processed, vault, mdfile)
     hash_ = hash(script_id)
     (hash_ in processed) && return false
     push!(processed, hash_)
-
-    # set globals
-    set_global!(:__VAULT__, vault)
-    set_global!(:__FILE__, mdfile)
-    set_global!(:__DIR__, dirname(mdfile))
-    set_global!(:__LINE__, script_ast.line)
-    set_global!(:__FILE_AST__, parent_ast(script_ast))
-    set_global!(:__LINE_AST__, script_ast)
-    set_global!(:__SCRIPT_ID__, script_id)
     
     # emb_script
     script_source = get(script_ast, :script, "")
@@ -75,9 +96,36 @@ function _run_script!(script_ast, processed, vault, mdfile)
     end
 
     # info
-    _info("Running script", "-"; 
+    _info("Running ObaScriptBlockAST", "-"; 
         script_id, 
-        mdfile = string(mdfile, ":", script_ast.line),
+        notefile = string(currfile(), ":", currline()),
+        source = string("\n\n", script_source, "\n"), 
+    )
+    
+    # eval
+    include_string(Main, script_source)
+
+    # TODO: catch and warn any miss-behavior with the globals
+
+    return true
+end
+
+function _run_codeblock!(codeblock::CodeBlockAST; processed = [])
+
+    # script_src
+    script_source = string(get(codeblock, :body, ""))
+
+    # check if processed
+    hash_ = hash(script_source)
+    (hash_ in processed) && return false
+    push!(processed, hash_)
+    
+    # reformat source
+    script_source = _replace_base_macros(script_source)
+
+    # info
+    _info("Running CodeBlockAST", "-"; 
+        notefile = string(currfile(), ":", currline()),
         source = string("\n\n", script_source, "\n"), 
     )
     

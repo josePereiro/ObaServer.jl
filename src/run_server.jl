@@ -108,7 +108,7 @@ function _run_notefiles()
 end
 
 ## ------------------------------------------------------------------
-function run_server(vault=pwd(); 
+function run_server(vault=pwd();
         niters = typemax(Int), 
         note_ext = ".md",
         force_trigger = false, 
@@ -126,12 +126,12 @@ function run_server(vault=pwd();
     _up_trigger_event()
 
     # run
-    run_server()
+    _run_server_loop()
     
 end
 
 ## ------------------------------------------------------------------
-function run_server() 
+function _run_server_loop() 
 
     # reset
     _reset_server()

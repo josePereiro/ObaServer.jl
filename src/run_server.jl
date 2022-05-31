@@ -11,7 +11,6 @@ const START_UP_FILE_NAME = "startup.oba"
 startup_name() = 
     string(START_UP_FILE_NAME, getstate(NOTE_EXT_SERVER_KEY))
 
-
 function run_oba_startup()
 
     # find startup.oba
@@ -40,6 +39,10 @@ function run_oba_startup()
 end
 
 # -------------------------------------------------------------------
+# TODO: create the AST cache, at least one per iter. Maybe empty at the iter's end.
+# Keep a record of runnable/non-runnable 
+
+# -------------------------------------------------------------------
 function _run_notefiles()
 
     note_ext = getstate(NOTE_EXT_SERVER_KEY)
@@ -47,10 +50,10 @@ function _run_notefiles()
 
     _info("Running note ($(note_ext)) files", "=")
 
-    notefiles = findall_files(vault, note_ext)
+    notefiles = findall_files(vault, note_ext; 
+        keepout = ignore_folders()
+    )
     for notefile in notefiles
-
-        try
 
             processed = UInt64[]
             upstate!(PER_FILE_LOOP_ITER_SERVER_KEY, 1)
@@ -58,6 +61,16 @@ function _run_notefiles()
                 
                 upstate!(RUN_FILE_AGAIN_SIGNAL, false)
                 AST = parse_file(notefile)
+
+                # handle ignore flags
+                doignore = false
+                for toignore in ignore_tags()
+                    if hastag(AST, toignore) 
+                        doignore = true
+                        break
+                    end
+                end
+                doignore && break
                 
                 for child in AST
                     
@@ -78,8 +91,14 @@ function _run_notefiles()
                         break # for child in AST 
                     end
 
-                    # run script
-                    didrun = _run_obascript!(child; processed)
+                    didrun = false
+                    try
+                        # run script
+                        didrun = _run_obascript!(child; processed)
+                    catch err
+                        _error("ERROR", err, "!"; notefile, child)
+                        return
+                    end
 
                     # signal out
                     upstate!(PER_FILE_LOOP_ITER_SERVER_KEY, didrun)
@@ -98,11 +117,6 @@ function _run_notefiles()
                 )
 
             end # The run deep  
-        
-        catch err
-            _error("ERROR", err, "!"; notefile)
-            return
-        end
 
     end # for notefile
 end

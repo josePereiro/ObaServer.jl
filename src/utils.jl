@@ -91,3 +91,6 @@ _error(msg::String, err, sep; kwargs...) = _error(stdout, msg, err, sep; kwargs.
 
 ## ------------------------------------------------------------------
 ismultiline(str::String) = contains(str, "\n")
+
+## ------------------------------------------------------------------
+tovec(val, T = typeof(val)) = (val isa Vector) ? var : T[val]

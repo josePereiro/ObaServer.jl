@@ -39,6 +39,8 @@ const NOTE_EXT_SERVER_KEY = "note_ext"
 const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
 const WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY = "trigger_timer"
 const OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY = "trigger_file_event"
+const IGNORE_TAGS_SERVER_KEY = "ignore_tags"
+const IGNORE_FOLDERS_SERVER_KEY = "ignore_folders"
 
 vaultdir() = getindex(SERVER_STATE, VAULT_GLOBAL_KEY)
 vaultdir!(dir::String) = setindex!(SERVER_STATE, abspath(dir), VAULT_GLOBAL_KEY)
@@ -67,7 +69,19 @@ currast!(ast::ObaAST) = setindex!(SERVER_STATE, ast, CURRAST_GLOBAL_KEY)
 
 export show_server_state
 show_server_state() = _info("Server state", "", SERVER_STATE.state)
-    
+
+ignore_tags() = getstate!(IGNORE_TAGS_SERVER_KEY) do
+    String[]
+end
+ignore_tags!(tags::Vector{String}) = upstate!(IGNORE_TAGS_SERVER_KEY, tags)
+export ignore_tags, ignore_tags!
+
+ignore_folders() = getstate!(IGNORE_FOLDERS_SERVER_KEY) do
+    String[]
+end
+ignore_folders!(folders::Vector{String}) = upstate!(IGNORE_FOLDERS_SERVER_KEY, folders)
+export ignore_folders, ignore_folders!
+
 function init_server_defaults()
     
     upstate!(WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY, 
@@ -76,5 +90,8 @@ function init_server_defaults()
     upstate!(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY, 
         FileContentEvent()
     )
+
+    ignore_tags!(String["Oba/ignore"])
+    ignore_folders!(String[".obsidian", ".git"])
     
 end

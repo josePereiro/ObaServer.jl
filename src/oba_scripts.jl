@@ -1,6 +1,6 @@
 # this both must be coherents
 
-_generate_rand_id(prefix = "", n = 8) = string(prefix, randstring(n))
+_generate_rand_id(prefix = "", n = 4) = string(prefix, randstring(n))
 
 ## ------------------------------------------------------------------
 # HEAD

@@ -2,7 +2,9 @@ module ObaServer
 
 import EasyEvents: reset!, update!, has_event!, FileContentEvent, FileMTimeEvent
 import Random: randstring
+import HTTP: escapeuri
 
+using Dates
 using FilesTreeTools
 using ObaASTs
 
@@ -19,9 +21,6 @@ include("oba_plugin.jl")
 include("oba_scripts.jl")
 include("run_server.jl")
 include("utils.jl")
-
-    function __init__()
-        init_server_defaults()
-    end
+include("callbacks.jl")
 
 end

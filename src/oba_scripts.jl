@@ -18,7 +18,7 @@ function _handle_script_id_refactoring!(script_ast::ObaScriptBlockAST, mdfile)
     _info("Refactoring source", "-"; 
         embtag, 
         mdfile = string(mdfile, ":", script_ast.line),
-        newsrc = string("\n", script_ast.src),
+        newsrc = string("\n\n", script_ast.src),
     )
 
     write!(parent_ast(script_ast))
@@ -74,7 +74,9 @@ function up_currscript!()
     return script
 end
 
-function _run_obascript!(script_ast; processed = [])
+function _run_obascript!(script_ast::ObaScriptBlockAST; 
+        processed = UInt64[]
+    )
 
     # script_id
     script_id = get_param(script_ast, "id")
@@ -91,14 +93,15 @@ function _run_obascript!(script_ast; processed = [])
     script_source = _replace_base_macros(script_source)
     
     # handle scope
-    if !hasflag(script_ast, "g") || hasflag(script_ast, "l")
+    if hasflag(script_ast, "l") || !(hasflag(script_ast, "s") || hasflag(script_ast, "g"))
         script_source = string("let;\n", strip(script_source), "\nend")
     end
 
     # info
     _info("Running ObaScriptBlockAST", "-"; 
-        script_id, 
+        head = source(script_ast[:head]),
         notefile = string(currfile(), ":", currline()),
+        obsidian = _obsidian_url(vaultdir(), currfile()),
         source = string("\n\n", script_source, "\n"), 
     )
     
@@ -106,31 +109,6 @@ function _run_obascript!(script_ast; processed = [])
     include_string(Main, script_source)
 
     # TODO: catch and warn any miss-behavior with the globals
-
-    return true
-end
-
-function _run_codeblock!(codeblock::CodeBlockAST; processed = [])
-
-    # script_src
-    script_source = string(get(codeblock, :body, ""))
-
-    # check if processed
-    hash_ = hash(script_source)
-    (hash_ in processed) && return false
-    push!(processed, hash_)
-    
-    # reformat source
-    script_source = _replace_base_macros(script_source)
-
-    # info
-    _info("Running CodeBlockAST", "-"; 
-        notefile = string(currfile(), ":", currline()),
-        source = string("\n\n", script_source, "\n"), 
-    )
-    
-    # eval
-    include_string(Main, script_source)
 
     return true
 end

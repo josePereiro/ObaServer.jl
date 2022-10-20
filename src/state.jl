@@ -1,6 +1,6 @@
 # TODO: make better global interface
-# Maybe using functions (e.g currlineast())
-# Automatize reparse! detection
+# [DONE] Maybe using functions (e.g currlineast())
+# [DONE?] Automatize reparse! detection
 
 const SERVER_STATE = ObaServerState()
 
@@ -37,10 +37,13 @@ const FORCE_TRIGGER_SERVER_KEY = "force_trigger"
 const TRIGGER_FILE_SERVER_KEY = "trigger_file"
 const NOTE_EXT_SERVER_KEY = "note_ext"
 const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
+const PROCESSED_SCRIPTS_CACHE = "processed_scripts"
+const LAST_UPDATE_REGISTRY = "last_update"
 const WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY = "trigger_timer"
 const OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY = "trigger_file_event"
 const IGNORE_TAGS_SERVER_KEY = "ignore_tags"
 const IGNORE_FOLDERS_SERVER_KEY = "ignore_folders"
+const IS_STARTUP_SERVER_KEY = "is_startup"
 
 vaultdir() = getindex(SERVER_STATE, VAULT_GLOBAL_KEY)
 vaultdir!(dir::String) = setindex!(SERVER_STATE, abspath(dir), VAULT_GLOBAL_KEY)
@@ -90,8 +93,11 @@ function init_server_defaults()
     upstate!(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY, 
         FileContentEvent()
     )
+    upstate!(LAST_UPDATE_REGISTRY, 
+        Dict{String, Float64}()
+    )
 
     ignore_tags!(String["Oba/ignore"])
-    ignore_folders!(String[".obsidian", ".git"])
+    ignore_folders!(String[".obsidian", ".git", ".trash"])
     
 end

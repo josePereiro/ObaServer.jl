@@ -17,7 +17,7 @@ _rm(dir) = rm(dir; force = true, recursive = true)
         tfile1 = joinpath(vault, "test_file1")
         write(jlfile, 
             """
-            ```julia
+            ```julia #!Oba -s
             # test run
             write("$tfile1", "$rstr1")
             # show stuff
@@ -33,8 +33,8 @@ _rm(dir) = rm(dir; force = true, recursive = true)
         tfile3 = joinpath(vault, "test_file3")
         write(mdfile, 
             """
-            %% #!Oba
-            ```julia
+            %% 
+            ```julia #!Oba
             # test run
             write("$tfile2", "$rstr2")
             # show stuff

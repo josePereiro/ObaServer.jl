@@ -19,7 +19,7 @@ Base.getindex(e::ObaServerState, key) = getindex(e.state, string(key))
 Base.setindex!(e::ObaServerState, val, key) = setindex!(e.state, val, string(key))
 Base.keys(e::ObaServerState) = keys(e.state)
 Base.haskey(e::ObaServerState, key) = haskey(e.state, key)
-Base.empty!(e::ObaServerState) = empty!(e.state)
+Base.empty!(e::ObaServerState) = (empty!(e.state); e)
 
 ## ------------------------------------------------------------------
 mutable struct SleepTimer

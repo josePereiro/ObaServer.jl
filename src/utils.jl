@@ -12,7 +12,9 @@ function _match_pos(rm::RegexMatch)
 end
 
 # ------------------------------------------------------------------
-function foreach_file(f::Function, vault, ext = ".md"; keepout = [".obsidian", ".git"])
+function foreach_file(f::Function, vault, ext = ".md"; 
+        keepout = [".obsidian", ".git"]
+    )
     walkdown(vault; keepout) do path
         !endswith(path, ext) && return
         f(path)
@@ -41,6 +43,7 @@ function find_file(vault, name; keepout = [".obsidian", ".git"])
     end
     return path
 end
+
 # Server api
 find_file(name; keepout = [".obsidian", ".git"]) = 
     find_file(vaultdir(), name; keepout)
@@ -56,7 +59,7 @@ function _info(io::IO, msg::String, sep, kwargs)
     ioh, iow = displaysize(io)
 
     println()
-    println(sep^max(30, iow - 10))
+    !isempty(sep) && println(sep^max(30, iow - 10))
     printstyled(msg; bold = true, color = INFO_COLOR)
     println()
     for (k, val) in kwargs
@@ -90,7 +93,30 @@ end
 _error(msg::String, err, sep; kwargs...) = _error(stdout, msg, err, sep; kwargs...)
 
 ## ------------------------------------------------------------------
-ismultiline(str::String) = contains(str, "\n")
+# Ex: obsidian://open?vault=notebook&file=2_notes%2F%40braunsteinCompressedSensingReconstruction2019
 
-## ------------------------------------------------------------------
-tovec(val, T = typeof(val)) = (val isa Vector) ? var : T[val]
+function _obsidian_url(vault::String, file::String)
+    vault = abspath(vault)
+    file = abspath(file)
+    
+    file = replace(file, vault => "")[2:end] # delete vault path
+    file = escapeuri(file)
+    vault = escapeuri(basename(vault))
+
+    return string("obsidian://open?", 
+        "vault=", vault, "&",
+        "file=", file
+    )
+end
+
+_obsidian_url() = _obsidian_url(vaultdir(), currfile())
+
+# -------------------------------------------------------------------
+function is_modified(file::AbstractString)
+    mtimereg = getstate!(LAST_UPDATE_REGISTRY) do
+        Dict{String, Float64}()
+    end
+    lastmtime = get!(mtimereg, file, -1)
+    currmtime = mtime(file)
+    return lastmtime != currmtime
+end

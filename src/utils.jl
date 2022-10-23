@@ -120,3 +120,10 @@ function is_modified(file::AbstractString)
     currmtime = mtime(file)
     return lastmtime != currmtime
 end
+
+# -------------------------------------------------------------------
+function send_msg(msg::AbstractString)
+    msg_file = getstate(MSG_FILE_SERVER_KEY)
+    write(msg_file, string(msg))
+    return msg_file
+end

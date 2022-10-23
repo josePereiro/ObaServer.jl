@@ -1,4 +1,5 @@
 ## ------------------------------------------------------------------
+# will trigger if the trigger_file changed
 _has_trigger() = has_event!(
     getstate(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY), 
     getstate(TRIGGER_FILE_SERVER_KEY)

@@ -155,7 +155,8 @@ function run_server(vault=pwd();
         niters = typemax(Int), 
         note_ext = ".md",
         force_trigger = false, 
-        trigger_file = _oba_plugin_trigger_file(vault)
+        trigger_file = _oba_plugin_trigger_file(vault), 
+        msg_file = _oba_plugin_msg_file(vault), 
     )
 
     # reset state
@@ -167,6 +168,7 @@ function run_server(vault=pwd();
     upstate!(SERVER_LOOP_NITERS_SERVER_KEY, niters)
     upstate!(FORCE_TRIGGER_SERVER_KEY, force_trigger)
     upstate!(TRIGGER_FILE_SERVER_KEY, abspath(trigger_file))
+    upstate!(MSG_FILE_SERVER_KEY, abspath(msg_file))
     upstate!(NOTE_EXT_SERVER_KEY, note_ext)
     
     try

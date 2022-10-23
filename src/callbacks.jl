@@ -2,20 +2,20 @@
 
 const NOTE_FUN_REG = "general_notefuns"
 callback_registry() = getstate!(NOTE_FUN_REG) do
-    Dict{Symbol, Set{Function}}()
+    Dict{Symbol, Set{Symbol}}()
 end
-callback_registry(key) = get!(callback_registry(), key, Set{Function}())
+callback_registry(key) = get!(callback_registry(), key, Set{Symbol}())
 export callback_registry
 
 """
-    register_callback!(f::Function, key = :before_exec)
+    register_callback!(f::Symbol, key = :before_exec)
 
 Register a function `f(ast)` to be called every `key` event happends.
 The functions are responsable for calling reparse!/write! to validate the ast.
 The user must handle duplication avoidance.
 For see all events explore `callback_registry()` keys
 """
-function register_callback!(f::Function, key = :before_exec)
+function register_callback!(f::Symbol, key = :before_exec)
     callbacks_reg = callback_registry(key)
     push!(callbacks_reg, f)
     return nothing
@@ -26,8 +26,9 @@ function _run_callbacks!(ast::ObaAST, key)
     try
         callbacks_reg = callback_registry(key)
         isempty(callbacks_reg) && return true
-        for f in callbacks_reg
-            Base.invokelatest(f, ast)
+        for fname in callbacks_reg
+            fun = getfield(Main, fname)
+            Base.invokelatest(fun, ast)
         end
     catch err
         _error("ERROR ON CALLBACK", err, "!"; 

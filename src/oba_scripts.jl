@@ -108,7 +108,5 @@ function _run_obascript!(script_ast::ObaScriptBlockAST;
     # eval
     include_string(Main, script_source)
 
-    # TODO: catch and warn any miss-behavior with the globals
-
     return true
 end

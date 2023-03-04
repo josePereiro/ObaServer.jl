@@ -1,6 +1,8 @@
 # this both must be coherents
 
-_generate_rand_id(prefix = "", n = 4) = string(prefix, randstring(n))
+_generate_rand_id() = randstring(4)
+_generate_rand_id(n::Int) = randstring(n)
+_generate_rand_id(prefix, n::Int = 4) = string(prefix, randstring(n))
 
 ## ------------------------------------------------------------------
 # HEAD
@@ -21,7 +23,7 @@ function _handle_script_id_refactoring!(script_ast::ObaScriptBlockAST, mdfile)
         newsrc = string("\n\n", script_ast.src),
     )
 
-    write!(parent_ast(script_ast))
+    write!!(parent_ast(script_ast))
 
     return true
 end
@@ -62,15 +64,13 @@ When a reparse! is made, new childs are created and the globals must be recomput
 It assumes the id is unchanged.
 """
 function up_currscript!()
-
     ast = currast()
-    script = currscript()
+    script = getstate(CURRSCRIPT_GLOBAL_KEY)
     curr_idx = find_byid(ast, script)
     if !isnothing(curr_idx)
         script = ast[curr_idx]
-        currscript!(script)
+        _currscript!(script)
     end
-
     return script
 end
 

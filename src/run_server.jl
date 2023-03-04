@@ -6,41 +6,20 @@ function _reset_server()
     return nothing
 end
 
-# -------------------------------------------------------------------
-# TODO: create the AST cache, at least one per iter. Maybe empty at the iter's end.
-# Keep a record of runnable/non-runnable 
-
-# -------------------------------------------------------------------
-function _run_obascripts(notefiles::Vector)
-
-    t0 = now()
-
-    for notefile in notefiles
-        run_notefile!(notefile) || return
-    end
-
-    _info("Done", ""; time = Dates.canonicalize(now() - t0))
-
-    return nothing
-
-end
-
 ## ------------------------------------------------------------------
-function run_notefile!(notefile::AbstractString)
+function _run_notefile!(notefile::AbstractString)
 
-    vault = getstate!(VAULT_GLOBAL_KEY) do
-        dirname(notefile)
-    end
+    vault = getstate!(() -> dirname(notefile), VAULT_GLOBAL_KEY)
     
-    upstate!(PROCESSED_SCRIPTS_CACHE, UInt64[])
+    upstate!(PROCESSED_SCRIPTS_CACHE_KEY, UInt64[])
     upstate!(PER_FILE_LOOP_ITER_SERVER_KEY, 1)
 
     # mtime
     mtimereg = getstate!(LAST_UPDATE_REGISTRY) do
         Dict{String, Float64}()
     end
-    lastmtime = get!(mtimereg, notefile, -1)
-    currmtime = mtime(notefile)
+    upstate!(CURR_AST_MTIME_KEY, mtime(notefile))
+    upstate!(LAST_AST_MTIME_KEY, get!(mtimereg, notefile, -1))
     
     while true
         
@@ -48,10 +27,8 @@ function run_notefile!(notefile::AbstractString)
         AST = nothing
         try
             AST = parse_file(notefile)
-            
             # set global
-            currast!(AST)
-            
+            _currast!(AST)
         catch err
             _error("ERROR PARSING", err, "!"; 
                 notefile, 
@@ -62,8 +39,7 @@ function run_notefile!(notefile::AbstractString)
 
         # on parse
         _run_callbacks!(AST, :on_parse) || return false
-        # on_modified
-        lastmtime != currmtime && (_run_callbacks!(AST, :on_modified) || return false)
+        !is_modified(0.0) && (_run_callbacks!(AST, :on_modified) || return false)
 
         # handle ignore file tags
         doignore = false
@@ -84,8 +60,8 @@ function run_notefile!(notefile::AbstractString)
             isscriptblock(child) || continue
             
             # set global
-            currast!(AST)
-            currscript!(child)
+            _currast!(AST)
+            _currscript!(child)
 
             # handle flags
             # ignore
@@ -94,7 +70,7 @@ function run_notefile!(notefile::AbstractString)
             isstartup = getstate(IS_STARTUP_SERVER_KEY, false)
             !xor(isstartup, hasflag(child, "s")) || continue
             # on update
-            lastmtime == currmtime && hasflag(child, "u") && continue
+            !is_modified(0.0) && hasflag(child, "u") && continue
             
             # refactor if script_id is missing
             refactored = _handle_script_id_refactoring!(child, notefile)
@@ -107,7 +83,7 @@ function run_notefile!(notefile::AbstractString)
             try
                 # run script
                 didrun = _run_obascript!(child;
-                    processed = getstate(PROCESSED_SCRIPTS_CACHE)
+                    processed = getstate(PROCESSED_SCRIPTS_CACHE_KEY)
                 )
 
                 if didrun
@@ -136,10 +112,10 @@ function run_notefile!(notefile::AbstractString)
             break
         end
 
-        getstate(PER_FILE_LOOP_ITER_SERVER_KEY) >= getstate!(PER_FILE_LOOP_NITERS_SERVER_KEY, 1000) && break
-        upstate!(PER_FILE_LOOP_ITER_SERVER_KEY,
-            getstate(PER_FILE_LOOP_ITER_SERVER_KEY) + 1
-        )
+        iter = getstate(PER_FILE_LOOP_ITER_SERVER_KEY)
+        niters = getstate!(PER_FILE_LOOP_NITERS_SERVER_KEY, 1000)
+        iter >= niters && break
+        upstate!(PER_FILE_LOOP_ITER_SERVER_KEY, iter + 1)
 
     end # The run deep 
 
@@ -150,71 +126,30 @@ function run_notefile!(notefile::AbstractString)
 
 end
 
-## ------------------------------------------------------------------
-function run_server(vault=pwd();
-        niters = typemax(Int), 
-        note_ext = ".md",
-        force_trigger = false, 
-        trigger_file = _oba_plugin_trigger_file(vault), 
-        msg_file = _oba_plugin_msg_file(vault), 
-    )
+# -------------------------------------------------------------------
+function _run_obascripts(notefiles::Vector)
 
-    # reset state
-    empty!(serverstate())
-    
-    # up state
-    init_server_defaults()
-    upstate!(VAULT_GLOBAL_KEY, abspath(vault))
-    upstate!(SERVER_LOOP_NITERS_SERVER_KEY, niters)
-    upstate!(FORCE_TRIGGER_SERVER_KEY, force_trigger)
-    upstate!(TRIGGER_FILE_SERVER_KEY, abspath(trigger_file))
-    upstate!(MSG_FILE_SERVER_KEY, abspath(msg_file))
-    upstate!(NOTE_EXT_SERVER_KEY, note_ext)
-    
-    try
-        
-        # startup
-        run_startup()
-        
-        # startup
-        upstate!(SERVER_LOOP_ITER_SERVER_KEY, 1)
-        while true
+    t0 = now()
 
-            # trigger
-            _wait_for_trigger()
-            
-            # run notefiles
-            vault = vaultdir()
-            note_ext = getstate(NOTE_EXT_SERVER_KEY)
-            notefiles = findall_files(vault, note_ext; 
-                keepout = ignore_folders()
-            )
-            _info("Running notes, looking ($(note_ext)) files", "=")
-            _run_obascripts(notefiles)
-
-            getstate(SERVER_LOOP_ITER_SERVER_KEY) >= getstate(SERVER_LOOP_NITERS_SERVER_KEY, typemax(Int)) && break
-            upstate!(SERVER_LOOP_ITER_SERVER_KEY, 
-                getstate(SERVER_LOOP_ITER_SERVER_KEY) + 1
-            )
-        end
-
-    catch err
-        (err isa InterruptException) && return
-        rethrow(err)
+    for notefile in notefiles
+        _run_notefile!(notefile) || return
     end
+
+    _info("Done", ""; 
+        time = ObaBase._canonicalize(now() - t0)
+    )
 
     return nothing
 
-    
 end
 
 ## ------------------------------------------------------------------
 const START_UP_FILE_NAME = "startup.oba"
 startup_name(note_ext) = string(START_UP_FILE_NAME, note_ext)
 
-function run_startup()
+function _run_startup_round()
     
-    vault = vaultdir()
+    vault = getstate(VAULT_GLOBAL_KEY)
     note_ext = getstate(NOTE_EXT_SERVER_KEY)
 
     _info("Start up, looking ($(note_ext)) files", "=")
@@ -232,9 +167,7 @@ function run_startup()
     end
 
     # run the rest
-    notefiles = findall_files(vault, note_ext; 
-        keepout = ignore_folders()
-    )
+    notefiles = findall_notefiles()
     isfile(stfile) && filter!(isequal(stfile), notefiles)
 
     try
@@ -246,3 +179,67 @@ function run_startup()
 
     
 end
+
+## ------------------------------------------------------------------
+function _run_update_round()
+    note_ext = getstate(NOTE_EXT_SERVER_KEY)
+    notefiles = findall_notefiles()
+    _info("Running notes, looking ($(note_ext)) files", "=")
+    _run_obascripts(notefiles)
+end
+
+## ------------------------------------------------------------------
+function run_server(vault=pwd();
+        niters = typemax(Int), 
+        note_ext = ".md",
+        force_trigger = false, 
+        trigger_file = _oba_plugin_trigger_file(vault), 
+        msg_file = _oba_plugin_msg_file(vault), 
+        clear_state = true
+    )
+
+    # reset state
+    clear_state && empty!(serverstate())
+    clear_state && init_server_defaults()
+    
+    # up state
+    upstate!(VAULT_GLOBAL_KEY, abspath(vault))
+    upstate!(SERVER_LOOP_NITERS_SERVER_KEY, niters)
+    upstate!(FORCE_TRIGGER_SERVER_KEY, force_trigger)
+    upstate!(TRIGGER_FILE_SERVER_KEY, abspath(trigger_file))
+    upstate!(MSG_FILE_SERVER_KEY, abspath(msg_file))
+    upstate!(NOTE_EXT_SERVER_KEY, note_ext)
+    
+    try
+        
+        # startup
+        _run_startup_round()
+        
+        # iter
+        upstate!(SERVER_LOOP_ITER_SERVER_KEY, 1)
+
+        while true
+
+            # trigger
+            _wait_for_trigger()
+            
+            # run notefiles
+            _run_update_round()
+
+            # Loop iter
+            iter = getstate(SERVER_LOOP_ITER_SERVER_KEY)
+            maxiter = getstate(SERVER_LOOP_NITERS_SERVER_KEY, typemax(Int))
+            iter >= maxiter && break
+
+            upstate!(SERVER_LOOP_ITER_SERVER_KEY, iter + 1)
+        end
+
+    catch err
+        (err isa InterruptException) && return
+        rethrow(err)
+    end
+
+    return nothing
+
+end
+

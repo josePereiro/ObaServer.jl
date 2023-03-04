@@ -14,11 +14,11 @@ function upstate!(;kwargs...)
     return e
 end
 
-getstate(k) = getindex(SERVER_STATE, k)
-getstate(k, dflt) = get(SERVER_STATE, k, dflt)
-getstate!(k, dflt) = get!(SERVER_STATE, k, dflt)
-getstate(f::Function, k) = get(f, SERVER_STATE, k)
-getstate!(f::Function, k) = get!(f, SERVER_STATE, k)
+getstate(k::String) = getindex(SERVER_STATE, k)
+getstate(k::String, dflt) = get(SERVER_STATE, k, dflt)
+getstate!(k::String, dflt) = get!(SERVER_STATE, k, dflt)
+getstate(f::Function, k::String) = get(f, SERVER_STATE, k)
+getstate!(f::Function, k::String) = get!(f, SERVER_STATE, k)
 
 ## ------------------------------------------------------------------
 # System keys
@@ -26,41 +26,45 @@ getstate!(f::Function, k) = get!(f, SERVER_STATE, k)
 const VAULT_GLOBAL_KEY = "vaultdir"
 
 # Running state
+const LAST_AST_MTIME_KEY = "last_ast_mtime"
+const CURR_AST_MTIME_KEY = "curr_ast_mtime"
 const CURRAST_GLOBAL_KEY = "currast"
-const CURRAST_REPARSE_COUNTER_GLOBAL_KEY = "ast_reparse_counter"
-const CURRSCRIPT_GLOBAL_KEY = "currscript"
-const SERVER_LOOP_NITERS_SERVER_KEY = "niters"
-const SERVER_LOOP_ITER_SERVER_KEY = "iter"
-const PER_FILE_LOOP_NITERS_SERVER_KEY = "per_files_niters"
-const PER_FILE_LOOP_ITER_SERVER_KEY = "per_files_iter"
-const FORCE_TRIGGER_SERVER_KEY = "force_trigger"
-const TRIGGER_FILE_SERVER_KEY = "trigger_file"
 const MSG_FILE_SERVER_KEY = "msg_file"
 const NOTE_EXT_SERVER_KEY = "note_ext"
-const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
-const PROCESSED_SCRIPTS_CACHE = "processed_scripts"
 const LAST_UPDATE_REGISTRY = "last_update"
+const RUN_FILE_AGAIN_SIGNAL = "run_again_signal"
+const IS_STARTUP_SERVER_KEY = "is_startup"
+const CURRSCRIPT_GLOBAL_KEY = "currscript"
+const IGNORE_TAGS_SERVER_KEY = "ignore_tags"
+const TRIGGER_FILE_SERVER_KEY = "trigger_file"
+const FORCE_TRIGGER_SERVER_KEY = "force_trigger"
+const IGNORE_FOLDERS_SERVER_KEY = "ignore_folders"
+const PROCESSED_SCRIPTS_CACHE_KEY = "processed_scripts"
+const SERVER_LOOP_ITER_SERVER_KEY = "iter"
+const PER_FILE_LOOP_ITER_SERVER_KEY = "per_files_iter"
+const SERVER_LOOP_NITERS_SERVER_KEY = "niters"
+const PER_FILE_LOOP_NITERS_SERVER_KEY = "per_files_niters"
 const WAIT_FOR_TRIGGER_SLEEP_TIMER_KEY = "trigger_timer"
 const OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY = "trigger_file_event"
-const IGNORE_TAGS_SERVER_KEY = "ignore_tags"
-const IGNORE_FOLDERS_SERVER_KEY = "ignore_folders"
-const IS_STARTUP_SERVER_KEY = "is_startup"
+const CURRAST_REPARSE_COUNTER_GLOBAL_KEY = "ast_reparse_counter"
 
-vaultdir() = getindex(SERVER_STATE, VAULT_GLOBAL_KEY)
-vaultdir!(dir::String) = setindex!(SERVER_STATE, abspath(dir), VAULT_GLOBAL_KEY)
+vaultdir() = getstate(VAULT_GLOBAL_KEY)
+_vaultdir!(dir::String) = getstate!(VAULT_GLOBAL_KEY, abspath(dir))
 
 function currscript() 
-    script_ast = getindex(SERVER_STATE, CURRSCRIPT_GLOBAL_KEY)
+    script_ast = getstate(CURRSCRIPT_GLOBAL_KEY)
     ast = parent_ast(script_ast)
     # check reparse counter
-    if reparse_counter(ast) != getstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, nothing)
-        upstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, reparse_counter(ast))
+    ast_counter = reparse_counter(ast)
+    last_counter = getstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, -1)
+    if ast_counter != last_counter
+        upstate!(CURRAST_REPARSE_COUNTER_GLOBAL_KEY, ast_counter)
         script_ast = up_currscript!()
     end
     return script_ast
 end
-currscript!(ast::ObaScriptBlockAST) = setindex!(SERVER_STATE, ast, CURRSCRIPT_GLOBAL_KEY)
-currscript!(ast::CodeBlockAST) = setindex!(SERVER_STATE, ast, CURRSCRIPT_GLOBAL_KEY)
+_currscript!(ast::ObaScriptBlockAST) = upstate!(CURRSCRIPT_GLOBAL_KEY, ast)
+_currscript!(ast::CodeBlockAST) = upstate!(CURRSCRIPT_GLOBAL_KEY, ast)
 
 currfile() = parent_file(currscript())
 currfiledir() = dirname(currfile())
@@ -68,8 +72,8 @@ currfiledir() = dirname(currfile())
 currline() = currscript().line
 scriptid() = get_param(currscript(), "id")
 
-currast() = getindex(SERVER_STATE, CURRAST_GLOBAL_KEY)
-currast!(ast::ObaAST) = setindex!(SERVER_STATE, ast, CURRAST_GLOBAL_KEY)
+currast() = getstate(CURRAST_GLOBAL_KEY)
+_currast!(ast::ObaAST) = upstate!(CURRAST_GLOBAL_KEY, ast)
 
 export show_server_state
 show_server_state() = _info("Server state", "", SERVER_STATE.state)

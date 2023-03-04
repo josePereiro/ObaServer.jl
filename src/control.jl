@@ -9,6 +9,14 @@ _up_trigger_event() = update!(
     getstate(TRIGGER_FILE_SERVER_KEY),
 )
 
+export up_trigger_file
+function up_trigger_file()
+    trfile = getstate(TRIGGER_FILE_SERVER_KEY, "")
+    isempty(trfile) && return false
+    write(trfile, _generate_rand_id(8))
+    return true
+end
+
 function _wait_for_trigger()
 
     _info("Waiting for trigger", ".")

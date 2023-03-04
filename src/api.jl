@@ -2,6 +2,7 @@ import ObaASTs.hastag
 hastag(arg) = hastag(currast(), arg)
 
 export is_modified
+# True if a file is newer than regitered 
 function is_modified(elp = 0.0)
     currmtime = getstate(CURR_AST_MTIME_KEY, Inf)
     lastmtime = getstate(LAST_AST_MTIME_KEY, -Inf)

@@ -1,7 +1,7 @@
 ## ------------------------------------------------------------------
 function _reset_server()
     # Events
-    reset!(getstate(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY))
+    EasyEvents.reset!(getstate(OBA_PLUGIN_TRIGGER_FILE_EVENT_KEY))
 
     return nothing
 end
@@ -60,7 +60,6 @@ function _run_notefile!(notefile::AbstractString)
             isscriptblock(child) || continue
             
             # set global
-            _currast!(AST)
             _currscript!(child)
 
             # handle flags
@@ -210,8 +209,13 @@ function run_server(vault=pwd();
     upstate!(MSG_FILE_SERVER_KEY, abspath(msg_file))
     upstate!(NOTE_EXT_SERVER_KEY, note_ext)
     
+    _run_server()
+
+end
+
+function _run_server()
+
     try
-        
         # startup
         _run_startup_round()
         
@@ -240,6 +244,4 @@ function run_server(vault=pwd();
     end
 
     return nothing
-
 end
-

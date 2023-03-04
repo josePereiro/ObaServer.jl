@@ -1,6 +1,6 @@
 module ObaServer
 
-    import EasyEvents: reset!, update!, has_event!, FileContentEvent, FileMTimeEvent
+    import EasyEvents: has_event!, FileContentEvent, FileMTimeEvent
     import Random: randstring
 
     using Dates

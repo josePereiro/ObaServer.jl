@@ -1,8 +1,8 @@
 # this both must be coherents
 
-_generate_rand_id() = randstring(4)
+_generate_rand_id() = randstring(8)
 _generate_rand_id(n::Int) = randstring(n)
-_generate_rand_id(prefix, n::Int = 4) = string(prefix, randstring(n))
+_generate_rand_id(prefix, n::Int = 8) = string(prefix, randstring(n))
 
 ## ------------------------------------------------------------------
 # HEAD
@@ -12,7 +12,7 @@ function _handle_script_id_refactoring!(script_ast::ObaScriptBlockAST, mdfile)
     
     isnothing(script_id) || return false
 
-    embtag = _generate_rand_id(script_ast.line)
+    embtag = _generate_rand_id(string("L", script_ast.line))
     
     set_param!(script_ast, "id", embtag)
 
@@ -23,7 +23,7 @@ function _handle_script_id_refactoring!(script_ast::ObaScriptBlockAST, mdfile)
         newsrc = string("\n\n", script_ast.src),
     )
 
-    write!!(parent_ast(script_ast))
+    write!!(script_ast)
 
     return true
 end

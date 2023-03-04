@@ -1,4 +1,5 @@
 # -------------------------------------------------------------------
+# True if a file is newer than regitered 
 function is_modified(file::AbstractString)
     mtimereg = getstate!(LAST_UPDATE_REGISTRY) do
         Dict{String, Float64}()

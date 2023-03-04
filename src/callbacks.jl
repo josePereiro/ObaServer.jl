@@ -26,17 +26,18 @@ function register_callback!(f::Symbol, key)
     return nothing
 end
 
-function _run_callbacks!(ast::ObaAST, key)
+function _run_callbacks!(ast::ObaAST, callback_key)
     try
-        callbacks_reg = callback_registry(key)
+        callbacks_reg = callback_registry(callback_key)
         isempty(callbacks_reg) && return true
         for fname in callbacks_reg
             fun = getfield(Main, fname)
+            # TODO: do this with regular invoking
             Base.invokelatest(fun, ast)
         end
     catch err
         _error("ERROR ON CALLBACK", err, "!"; 
-            key,
+            callback_key,
             notefile = ast.file, 
             obsidian = _obsidian_url(vaultdir(), ast.file)
         )

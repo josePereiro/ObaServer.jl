@@ -1,5 +1,7 @@
 module ObaServer
 
+    error("DEPRECATED: new at https://github.com/josePereiro/ObaServers.jl")
+
     import EasyEvents: has_event!, FileContentEvent, FileMTimeEvent
     import Random: randstring
 
